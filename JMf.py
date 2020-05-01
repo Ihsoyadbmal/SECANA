@@ -65,7 +65,6 @@ class Layer():
         self.lenpipeline = len(self.pipeline)
 
     def feedforward(self, input):
-
         if self.type is not 'input':
             if np.multiply(*input.shape) > np.multiply(*self.wshape) and self.type is not 'output':
                 pca = PCA(n_components=self.ishape[-1], random_state=12)
@@ -198,10 +197,8 @@ class Population():
         output = self.olayer.feedforward(input)
         return output
 
-
-    # Pas encore sûr pour la backpropagation ...
-    # def backpropagation(y):
-    #     ...
+    def backpropagation(self, y):
+        ...
 
     @staticmethod
     def loss(y, z):

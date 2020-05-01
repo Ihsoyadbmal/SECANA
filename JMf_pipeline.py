@@ -75,30 +75,6 @@ for _ in tqdm(range(epochs)):
         pred = np.r_[pred, p.feedforward(p.inputs[x:x + step]).reshape(-1)]
         if not (i % batch) and x > preheat:
 
-            # pred.shape
-            ##########
-            # if iw is None:
-            #     iw = (2. * np.random.binomial(1, .5, [len(p.olayer.connections), step]) - 1.) * .2
-            #
-            # # N_samples = res_states.shape[0]
-            # # res_states = res_states.reshape(-1, 1)
-            # # # ..transform..
-            # # red_states = pca.fit_transform(res_states)
-            # # # ..and put back in tensor form
-            # # red_states = red_states.reshape(-1,1)
-            #
-            # coeff_tr = []
-            # biases_tr = []
-            #
-            # for i in range(res_states.shape[0]):
-            #     ridge_embedding.fit(res_states[i].reshape(1, -1), Y[i:i + 1])
-            #     coeff_tr.append(ridge_embedding.coef_.ravel())
-            #     biases_tr.append(ridge_embedding.intercept_.ravel())
-            # print(np.array(coeff_tr).shape,np.array(biases_tr).shape)
-            # input_repr = np.concatenate((np.vstack(coeff_tr), np.vstack(biases_tr)), axis=1)
-            ##########
-
-
             lr = ((p.outputs[x -  step:x].reshape(-1) - pred[x - step:x]) ** 2).mean()
             # dlr = (lr + p.olayer.dactivate(pred[x:x + batch])) * alpha
             dact = p.olayer.dactivate(pred[x - step:x])
@@ -121,22 +97,6 @@ for _ in tqdm(range(epochs)):
     loss = np.r_[loss, np.inf if np.isnan(pred).any() else mse(p.outputs, savgol_filter(pred, 91, 3))]
 
 connection.weight
-connection.destination.activation_name
-
-np.dot(np.linalg.pinv(np.c_[connection.weight, p.outputs[x - batch:x]]).T,
-p.olayer.dactivate(pred[x - batch:x]).reshape(-1, 1))
-connection.weight.shape
-p.outputs[x - batch:x].shape
-
-np.dot(np.linalg.pinv(np.c_[pred[500:], p.inputs[500:]]), p.olayer.dactivate(pred[500:]))
-
-np.linalg.pinv(np.c_[connection.weight, p.outputs[-20:]]).T * p.olayer.dactivate(pred[-20:]).reshape(-1, 1)
-
-1. - (np.tanh(pred[x - batch:x]) ** 2.)
-
-
-x_.shape
-y_.shape
 
 p.ilayer.input.shape
 p.ilayer.output.shape
@@ -156,17 +116,12 @@ p.olayer.pipeline[1].destination.state
 
 p.ilayer.pipeline[0].weight
 
-
 sns.lineplot(data=np.c_[watchdog, bpwatchdog], dashes=False)
 sns.lineplot(data=watchdog, dashes=False)
 sns.lineplot(data=bpwatchdog, dashes=False)
 
 # plt.subplots(figsize=(20,10))
 sns.lineplot(data=loss)
-
-np.argmin(loss) + 1
-loss
-
 
 plt.subplots(figsize=(20,10))
 sns.lineplot(data=np.c_[MinMaxScaler().fit_transform(pred.reshape(-1, 1)), MinMaxScaler().fit_transform(savgol_filter(pred, 91, 3).reshape(-1, 1))], palette='Reds', dashes=False)
@@ -189,43 +144,6 @@ plt.subplots(figsize=(20,10))
 sns.lineplot(data=savgol_filter(pred, 91, 3))
 
 
-p.connections[-1].destination.bias
-_ =
-
-np.mean(-alpha  * np.dot(x[:20].T, pred[:20] - y[:20]))# / len(x)
-return - self.alpha * _
-
-
-
-
-(1. / (1. + np.exp(-.8))) * (1.0 - (1. / (1. + np.exp(-.8))))
-
-
-
-[array([7.99, 8.12, 5.1 , 4.81]) 1029]
-[array([ 8.01,  8.01, 11.23,  7.57]) 15669]
-[array([9.6 , 7.29, 5.96, 7.93]) 16625]
-[array([80.82,  6.25,  7.36,  8.4 ]) 7813]
-[array([13.84,  6.38,  7.08,  6.96]) 12205]
-[array([7.01, 4.9 , 5.28, 6.7 ]) 29985]
-[array([30.32,  6.71,  6.68,  6.41]) 25361]
-[array([8.75, 8.76, 7.11, 4.55]) 22263]
-[array([7.22, 5.7 , 6.7 , 6.31]) 1163]
-[array([37.07, 18.32,  7.25,  6.63]) 31365]
-[array([7.22, 5.82, 6.46, 7.19]) 1402]
-[array([10.74,  9.52,  9.39,  8.64]) 18151]
-
-[array([[44.92,  8.56],
-       [20.64,  3.72],
-       [17.79,  7.26],
-       [ 8.82,  3.11]])
- 389]
-
-[array([[10.79, 28.9 ],
-       [ 6.54, 14.11],
-       [ 5.76, 11.8 ],
-       [ 6.14,  7.64]])
- 31577]
 
 
 
