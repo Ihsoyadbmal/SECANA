@@ -79,7 +79,7 @@ class Layer():
 
         [c.propagate(hidden=self.type) for c in self.pipeline]
 
-        propagation = np.mean([self.activate(node.state) for node in self.destination_nodes], axis=0) + noise
+        propagation = self.activate(np.mean([node.state for node in self.destination_nodes], axis=0)) + noise
 
         propagation = (1 - self.leakage) * self.output + self.leakage * propagation
         self.output = propagation
@@ -94,7 +94,7 @@ class Layer():
 
     def connect(self, sources=None, destinations=None):
         c = np.array([])
-        if self.type is 'input' or self.type is 'output':
+        if self.type in ['input', 'output']:
             c = [Connection(self.wshape, Node(self.oshape), n, self.bounds, self.spectral_radius, self.dropout) for n in self.nodes]
         else:
             for s in sources or self.nodes:

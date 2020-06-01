@@ -1,5 +1,5 @@
 import numpy as np, pandas as pd, matplotlib.pyplot as plt, seaborn as sns
-from JMf import Population, activations
+from secana import Population, activations
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error as mse
 
@@ -42,12 +42,12 @@ from CTSGenerator import mackey_glass
 mg = mackey_glass(length=2000, tau=200)
 
 
-sns.lineplot(data=mg)
+# sns.lineplot(data=mg)
 
 X = mg[:-50].reshape(-1, 1)
 Y = mg[50:].reshape(-1, 1)
 
-alpha = .01
+alpha = .05
 beta = .9
 epochs = 20
 batch = 2
@@ -60,8 +60,7 @@ offset = len(x) % step
 x_, y_ = X[offset:len(X)], X[offset:len(X)]
 seed = 9604
 # p = Population(x_, y_, ((20, 25), (10, 50), (5, 100), (5, 5)), input_step=batch, oshape=1, sparsity=.7, recurrence=.2, dropout=.2, alpha=alpha, seed=seed, leakage=.2)
-p = Population(x_, y_, [2, (20, 5), 5], input_step=step, sparsity=.7, recurrence=.2, dropout=.2, alpha=alpha, seed=seed, leakage=.2, noise=.00)
-# p = Population(x_, y_, (), input_step=step, oshape=1, sparsity=.7, recurrence=.2, dropout=.2, alpha=alpha, seed=seed, leakage=.2)
+p = Population(x_, y_, [2, (20, 5), 5], input_step=step, sparsity=.7, recurrence=.2, dropout=.2, alpha=alpha, seed=seed, leakage=.05, noise=.00)
 
 loss = np.array([])
 
@@ -71,18 +70,21 @@ for _ in tqdm(range(epochs)):
     pred = np.array([])
     watchdog = np.array([])
     bpwatchdog = np.array([])
+    deltawd = np.array([])
     for i, x in enumerate(range(0, len(p.inputs), step)):
         pred = np.r_[pred, p.feedforward(p.inputs[x:x + step]).reshape(-1)]
         if not (i % batch) and x > preheat:
 
-            lr = ((p.outputs[x -  step:x].reshape(-1) - pred[x - step:x]) ** 2).mean()
+            lr = mse(p.outputs[:x].reshape(-1), pred[:x])
             # dlr = (lr + p.olayer.dactivate(pred[x:x + batch])) * alpha
-            dact = p.olayer.dactivate(pred[x - step:x])
-            bp = (p.outputs[x - step:x].reshape(-1) - pred[x - step:x]) * dact * alpha
-            # alpha *= .999
+            # dact = p.olayer.dactivate(lr)
+            dact = p.olayer.dactivate((p.outputs[:x].reshape(-1) - pred[:x]))
+            # dact = p.olayer.dactivate(pred[:x])
+            bp = dact * alpha
+            # bp = (p.outputs[:x].reshape(-1) - pred[:x]) * dact * alpha
             for connection in p.olayer.connections:
                 # np.linalg.pinv(np.c_[connection.weight, p.outputs[x - batch:x]]).T * p.olayer.dactivate(pred[x - batch:x]).reshape(-1, 1)
-                delta = connection.destination.dactivation(bp.reshape(-1, 1) * connection.weight).reshape(-1, 1)
+                delta = connection.destination.dactivation(bp[-step:].reshape(-1, 1) * connection.weight)
                 # delta = connection.destination.dactivation(bp) * alpha
                 # connection.source.dactivation(bp) * alpha
                 # connection.destination.activation_name
@@ -92,7 +94,8 @@ for _ in tqdm(range(epochs)):
             #     watchdog = np.concatenate([watchdog, lr], axis=None)
             # noise += lr
             watchdog = np.r_[watchdog, lr]
-            bpwatchdog = np.r_[bpwatchdog, np.zeros(((step * batch) - step)), bp]
+            bpwatchdog = np.r_[bpwatchdog, np.zeros(((step * batch) - step)), bp[-step:]]
+            deltawd = np.r_[deltawd, np.zeros(((step * batch) - step)), delta.reshape(-1)]
             # dwatchdog = np.r_[dwatchdog, dlr]
     loss = np.r_[loss, np.inf if np.isnan(pred).any() else mse(p.outputs, savgol_filter(pred, 91, 3))]
 
@@ -104,6 +107,10 @@ p.ilayer.pipeline[0].weight.shape
 p.ilayer.pipeline[0].source.state.shape
 p.ilayer.pipeline[0].destination.state.shape
 p.layers[0].pipeline[0].weight.shape
+
+np.dot(p.olayer.input, p.olayer.pipeline[0].weight)
+p.olayer.pipeline[0].propagate(hidden=False)
+p.olayer.input
 p.olayer.pipeline[0].weight
 p.olayer.pipeline[0].source.state
 p.olayer.pipeline[0].destination.state
@@ -119,6 +126,7 @@ p.ilayer.pipeline[0].weight
 sns.lineplot(data=np.c_[watchdog, bpwatchdog], dashes=False)
 sns.lineplot(data=watchdog, dashes=False)
 sns.lineplot(data=bpwatchdog, dashes=False)
+sns.lineplot(data=deltawd, dashes=False)
 
 # plt.subplots(figsize=(20,10))
 sns.lineplot(data=loss)
@@ -127,7 +135,7 @@ plt.subplots(figsize=(20,10))
 sns.lineplot(data=np.c_[MinMaxScaler().fit_transform(pred.reshape(-1, 1)), MinMaxScaler().fit_transform(savgol_filter(pred, 91, 3).reshape(-1, 1))], palette='Reds', dashes=False)
 # sns.lineplot(data=p.outputs, palette='Blues')
 sns.lineplot(data=MinMaxScaler().fit_transform(np.c_[x_[:, :-1], y_]), palette='Blues', dashes=False)
-sns.lineplot(data=np.r_[np.zeros((500)), bpwatchdog], dashes=False, palette='Greens')
+sns.lineplot(data=np.c_[np.r_[np.zeros((500)), bpwatchdog[-len(p.outputs) + 500:]], np.r_[np.zeros((500)), deltawd[-len(p.outputs) + 500:]]], dashes=False, palette='Greens')
 
 # sns.lineplot(data=pred)
 plt.subplots(figsize=(20,10))
@@ -142,8 +150,6 @@ sns.lineplot(data=savgol_filter(pred, 91, 3), dashes=False, palette='Reds')
 
 plt.subplots(figsize=(20,10))
 sns.lineplot(data=savgol_filter(pred, 91, 3))
-
-
 
 
 
