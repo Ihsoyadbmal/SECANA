@@ -3,7 +3,7 @@ import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import scale, StandardScaler
+from sklearn.preprocessing import scale, MinMaxScaler
 from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, Callback
 from tensorflow.keras.optimizers import Adam, Adagrad, SGD, Adadelta
@@ -13,21 +13,22 @@ import random
 from datetime import datetime
 from tensorflow.keras.utils import plot_model
 
+
 temps = pd.read_csv('D:/Documents/workspace/DIA/Projets/temperatures/data/daily-minimum-temperatures-in-me.csv', parse_dates=['Date'], index_col='Date')
 
-temps.info()
+# temps.info()
 
-_, ax = plt.subplots(figsize=(100,10))
-sns.lineplot(data=temps, ax=ax)
+# _, ax = plt.subplots(figsize=(100,10))
+# sns.lineplot(data=temps, ax=ax)
 
-temps.isna().any().sum()
+# temps.isna().any().sum()
 
 temps = temps.asfreq('1D', method='ffill')
 
 _X, _x, _x_ = temps['1981 01':'1986 02'], temps['1987':'1988'], temps['1989':'1990']
 spe = temps['1981':'1986'].shape[0]
 
-ssc = StandardScaler()
+ssc = MinMaxScaler()
 ssc.fit(temps.values)
 
 X, x, x_ = ssc.transform(_X), ssc.transform(_x), ssc.transform(_x_)
@@ -66,27 +67,27 @@ input = tf.keras.layers.Input(shape=(tra.size, 1), name='input')
 
 # gru = tf.keras.layers.SimpleRNN(16, name='g1')(input)
 
-dense = tf.keras.layers.Dense(50, activation=tf.nn.tanh, name='12')(input)
+dense = tf.keras.layers.Dense(50, activation=tf.nn.relu, name='12')(input)
 dp = tf.keras.layers.Dropout(.1, name='dp1')(dense)
-dense2 = tf.keras.layers.Dense(25, activation=tf.nn.tanh, name='13')(dp)
+dense2 = tf.keras.layers.Dense(25, activation=tf.nn.relu, name='13')(dp)
 dp2 = tf.keras.layers.Dropout(.2, name='dp2')(dense2)
 output = tf.keras.layers.Dense(1, activation=tf.keras.activations.linear, name='o1')(dp2)
 
 # #####
 # gru2 = tf.keras.layers.SimpleRNN(16, name='g2')(input)
 
-dense3 = tf.keras.layers.Dense(50, activation=tf.nn.tanh, name='22')(input)
+dense3 = tf.keras.layers.Dense(50, activation=tf.nn.relu, name='22')(input)
 dp3 = tf.keras.layers.Dropout(.2, name='dp3')(dense3)
-dense4 = tf.keras.layers.Dense(25, activation=tf.nn.tanh, name='23')(dp3)
-dp4 = tf.keras.layers.Dropout(.4, name='dp4')(dense4)
+dense4 = tf.keras.layers.Dense(25, activation=tf.nn.relu, name='23')(dp3)
+dp4 = tf.keras.layers.Dropout(.3, name='dp4')(dense4)
 output2 = tf.keras.layers.Dense(1, activation=tf.keras.activations.linear, name='o2')(dp4)
 
 # gru3 = tf.keras.layers.SimpleRNN(16, name='g3')(input)
 
-dense5 = tf.keras.layers.Dense(50, activation=tf.nn.tanh, name='32')(input)
+dense5 = tf.keras.layers.Dense(50, activation=tf.nn.relu, name='32')(input)
 dp5 = tf.keras.layers.Dropout(.3, name='dp5')(dense5)
-dense6 = tf.keras.layers.Dense(25, activation=tf.nn.tanh, name='33')(dp5)
-dp6 = tf.keras.layers.Dropout(.6, name='dp6')(dense6)
+dense6 = tf.keras.layers.Dense(25, activation=tf.nn.relu, name='33')(dp5)
+dp6 = tf.keras.layers.Dropout(.4, name='dp6')(dense6)
 output3 = tf.keras.layers.Dense(1, activation=tf.keras.activations.linear, name='o3')(dp6)
 
 model = tf.keras.models.Model(inputs=input, outputs=[output, output2, output3], name='Jean-Michel')
@@ -96,27 +97,49 @@ dnow = datetime.now().strftime("%Y%m%d-%H%M%S")
 # mc = ModelCheckpoint('best_model.h5', monitor='val_dense_2_mean_squared_error', mode='min', verbose=1, save_best_only=True)
 
 res = '_JM_'
-fpath = './checkpoints/JMI/{val_loss:.6f}'+ res + dnow + '.h5'
+fpath = './checkpoints/{val_loss:.6f}'+ res + dnow + '.h5'
 
-mc = MC(fpath, monitor=['val_o1_mean_squared_error', 'val_o2_mean_squared_error', 'val_o3_mean_squared_error'], mode='min', verbose=1, save_best_only=True)
-ga = GA(nets=['12', '13', '22', '23', '32', '33'], monitor=['val_o1_loss', 'val_o2_loss', 'val_o3_loss'])
+mc = MC(fpath, monitor=['val_o1_loss', 'val_o2_loss', 'val_o3_loss'], mode='min', verbose=1, save_best_only=True)
+ga = GA(nets=['12', '13', '22', '23', '32', '33'], monitor=['val_o1_loss', 'val_o2_loss', 'val_o3_loss'], crossover=.75, mutation=.1, dropout=.0)
 
-model.compile(optimizer=SGD(0.005), loss='mse')
+model.compile(optimizer=Adam(0.01), loss='mse')
 
 model.summary()
 
+plot_model(model, to_file='oedipe.png')
+
 ohist = model.fit_generator(tra, validation_data=val, epochs=10, callbacks=[mc, ga])
 
+sns.lineplot(data=np.array(ohist.history['val_loss']))
+
+plt.subplots(figsize=(20,10))
+sns.lineplot(data=np.array(ohist.history['val_o1_loss']), label='output 1')
+sns.lineplot(data=np.array(ohist.history['val_o2_loss']), label='output 2')
+sns.lineplot(data=np.array(ohist.history['val_o3_loss']), label='output 3')
+plt.title('Validation loss - Œdipe')
+
+
 tes = pred(x_)
-model = tf.keras.models.load_model('best_model.h5')
+model = tf.keras.models.load_model('./checkpoints/0.058382_JM_20200602-122740.h5')
 
-z = model.predict_generator(tes)
+z = model.predict(tes)
 
-_, ax = plt.subplots(figsize=(0o62,0b1010))
+zp = np.r_[z[0][0, :, :], z[0][1:, -1, :]]
+
+_, ax = plt.subplots(figsize=(0o24,0b1010))
 # sns.lineplot(data=ssc.inverse_transform(z[0]), ax=ax, palette='Reds')
-sns.lineplot(data=ssc.inverse_transform(z[1]), ax=ax, palette='Greens')
+sns.lineplot(data=ssc.inverse_transform(zp)[-500:], ax=ax, palette='Greens')
 # sns.lineplot(data=ssc.inverse_transform(z[2]), ax=ax, palette='Purples')
-sns.lineplot(data=ssc.inverse_transform(x_)[29:], ax=ax)
+sns.lineplot(data=ssc.inverse_transform(x_[:, -1:])[-500:], ax=ax)
+
+
+_, ax = plt.subplots(figsize=(0o24,0b1010))
+# sns.lineplot(data=ssc.inverse_transform(z[0]), ax=ax, palette='Reds')
+sns.lineplot(data=zp[-500:], ax=ax, palette='Greens')
+# sns.lineplot(data=ssc.inverse_transform(z[2]), ax=ax, palette='Purples')
+sns.lineplot(data=x_[:, -1:][-500:], ax=ax)
+
+
 
 
 # Tests
@@ -233,6 +256,9 @@ class GA(Callback):
             self.bestf = np.Inf
             self.bestm = np.Inf
 
+    def on_train_begin(self, logs={}):
+        print(f'Genetic Algorithm parameters\ncrossover {self.crossover}, mutation {self.mutation}, dropout {self.dropout}')
+
     def on_epoch_end(self, epoch, logs={}):
         monitor = [[e, logs.get(e)] for e in self.monitor]
         current = [e[True] for e in monitor]
@@ -244,15 +270,14 @@ class GA(Callback):
             parents = [e[False] for e in monitor if e[True] in current]
             best = min(current)
 
-            netf, netm = [e[4:6] for e in parents]
+            netf, netm = parents = [e[4:6] for e in parents]
 
             netf = [e for e in self.model.layers if e.name.startswith(netf[~False])]
             netm = [e for e in self.model.layers if e.name.startswith(netm[~False])]
-            netc = child[False][4:6]
+            netc = child = child[False][4:6]
             netc = [e for e in self.model.layers if e.name.startswith(netc[~False])]
 
-            print('\nGenetic incoming for child %s'
-                  % (child[False][4:6]))
+            print(f'\nGenetic transmission {parents} -> {child}')
             self.bestf, self.bestm = [current.pop(current.index(min(current))),
                     current.pop(current.index(min(current)))]
 

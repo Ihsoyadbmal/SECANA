@@ -30,7 +30,7 @@ bs = Hyperopt.bsearch
 
 
 while(life is beautiful):
-    mevals, algo, goldenticket = (100, rand.suggest, fs(3, 1, blind=blind, oneshot=oneshot))
+    mevals, algo, goldenticket = (10, rand.suggest, fs(3, 1, blind=blind, oneshot=oneshot))
 
     factory = Trials()
     try:
@@ -105,11 +105,13 @@ esn, s = opt.model(params, True)
 opt.esnplot(opt.mdf, s, esn)
 
 
+_, s = opt.model(
+{'epochs': 1, 'spectral_radius': 1.7620377890517072, 'noise': 0.051664953429020166, 'n_reservoir': 14, 'sparsity': 0.1003518795869285, 'random_state': 67, 'n_inputs': 3, 'n_outputs': 1, 'step': 15, 'trainratio': 958
+, 'blind':False, 'oneshot':False, 'preheat':False}, rpred=True)
 
-
-
-
-
-
+plt.subplots(figsize=(20,10))
+sns.lineplot(data=savgol_filter(df['cote'].reset_index(drop=True), 91, 3)[600:], alpha=.5, label='true')
+sns.lineplot(data=pd.Series(s.reshape(-1), index=range((len(df) - len(s) - 600), len(df) - 600))[20:], label='pred')
+plt.title('Walk forward ESN - 400 days')
 
 '''___'''
